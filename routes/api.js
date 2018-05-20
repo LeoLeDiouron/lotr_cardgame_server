@@ -1,58 +1,39 @@
 const express = require('express');
 const getRandomId = require('../tools/random_id')
+const CardManager = require("../controller/card_manager").CardManager;
+const RoomManager = require("../controller/room_manager").RoomManager;
 
 const router = express.Router();
+var card_manager = new CardManager();
+var room_manager = new RoomManager();
 
-rooms = [];
-idx_room = 0;
-
-function giveRoom(id) {
-    if (rooms.length > 0 && rooms[rooms.length - 1]["players"].length < 2) {
-        rooms[rooms.length - 1]["players"].push(id)
-    } else {
-        rooms.push({
-            'id_room': idx_room,
-            'players': [id]
-        })
-        idx_room++;
-    }
-}
-
-function findRoom(id) {
-    id_room = -1
-    rooms.forEach(room => {
-        if (room["players"].includes(id) == true) {
-            id_room = room["id_room"];
-        }
-    });
-    return id_room;
-}
-
+// return the id of the player, used by him for each request, like an access token, and give him a room
 router.get("/access", (req, res) => {
-    id = getRandomId();
-    giveRoom(id);
+    id_player = getRandomId();
+    room_manager.giveRoom(id_player);
     res.send({
-        "id": id
+        "id": id_player
     });
 })
 
+// send ok if the 2 players have selected their factions, else, send waiting
 router.get("/enter_room/:id_player", (req, res) => {
-    id_room = findRoom(req.params.id_player)
-    if (id_room != -1 && rooms[id_room]["players"].length == 2)
-        response = {'status':'ok'};
-    else
-        response = {'status':'waiting'};
+    res.send(room_manager.chooseDone(req.params.id_player));
+})
+
+// get the id of the facion selected by the player, and push a new deck of this faction into the card_manager (linked with the player)
+router.get("/choose_faction/:id_player/:id_faction", (req, res) => {
+    room_manager.giveFaction(req.params.id_player, req.params.id_faction);
+    card_manager.createDeck(req.params.id_player, req.params.id_faction);
+    card_manager.dispAllPlayers();
     res.send({
-        response
+        'status': 'ok'
     });
 })
 
-router.get("/choose_faction/:id_player/:id_faction", (req, res) => {
-    res.send({});
-})
-
+// send ok if the 2 players are in the room, else, send waiting
 router.get("/begin/:id_player", (req, res) => {
-    res.send({});
+    res.send(room_manager.roomDone(req.params.id_player));
 })
 
 router.get("/play/:id_player", (req, res) => {
